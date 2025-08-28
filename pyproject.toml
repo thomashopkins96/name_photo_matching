@@ -1,0 +1,55 @@
+[tool.poetry]
+    description  = ""
+    name         = "name_to_photo_matching"
+    package-mode = false
+    readme       = "README.md"
+    version      = "0.1.0"
+
+    [tool.poetry.dependencies]
+        loguru      = "^0.7"
+        numpy       = "^2.2"
+        python      = "^3.13"
+        ftfy        = "^6.3"
+        tqdm        = "^4.67"
+
+
+
+
+        # ===========================================
+        # =========== START OF TORCH PART ===========
+        torch       = { version = "^2.7", source = "pytorch-cpu", markers = "extra=='cpu' and extra!='cuda'" }
+        torchvision = { version = "^0.22", source = "pytorch-cpu", markers = "extra=='cpu' and extra!='cuda'" }
+    clip = {git = "https://github.com/openai/CLIP.git"}
+    google-cloud-storage = "^3.3.0"
+    google-api-python-client = "^2.179.0"
+    google-auth-oauthlib = "^1.2.2"
+    matplotlib = "^3.10.5"
+
+    [tool.poetry.group.cuda]
+        optional = true
+
+        # https://github.com/pytorch/pytorch/blob/main/RELEASE.md#release-compatibility-matrix
+        [tool.poetry.group.cuda.dependencies]
+            torch       = { version = "^2.7", source = "pytorch-cuda", markers = "extra=='cuda' and extra!='cpu'" }
+            torchvision = { version = "^0.22", source = "pytorch-cuda", markers = "extra=='cuda' and extra!='cpu'" }
+
+    [tool.poetry.extras]
+        cpu  = ["torch", "torchvision"]
+        cuda = ["torch", "torchvision"]
+
+    [[tool.poetry.source]]
+        name     = "pytorch-cuda"
+        priority = "explicit"
+        url      = "https://download.pytorch.org/whl/cu128"
+
+    [[tool.poetry.source]]
+        name     = "pytorch-cpu"
+        priority = "explicit"
+        url      = "https://download.pytorch.org/whl/cpu"
+
+        # ============ END OF TORCH PART ============
+        # ===========================================
+
+[build-system]
+    build-backend = "poetry.core.masonry.api"
+    requires      = ["poetry-core"]
