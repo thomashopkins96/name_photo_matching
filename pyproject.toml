@@ -24,6 +24,8 @@
     google-api-python-client = "^2.179.0"
     google-auth-oauthlib = "^1.2.2"
     matplotlib = "^3.10.5"
+    typer = "^0.16.1"
+    click = "^8.2.1"
 
     [tool.poetry.group.cuda]
         optional = true
@@ -50,6 +52,11 @@
         # ============ END OF TORCH PART ============
         # ===========================================
 
+    [[tool.poetry.scripts]]
+    cli = "name_to_photo_matchin.src.main:main"
+
 [build-system]
     build-backend = "poetry.core.masonry.api"
     requires      = ["poetry-core"]
+
+
