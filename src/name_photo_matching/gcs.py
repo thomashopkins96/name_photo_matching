@@ -56,7 +56,7 @@ class CloudStorageHandler:
             bucket_obj = self.client.bucket(self.bucket)
 
             blob_names = [
-                blob.name for blob in bucket_obj.list_blobs(max_results=1000)
+    blob.name for blob in bucket_obj.list_blobs(max_results=1000)
             ]
             if os.path.isdir(destination_directory):
                 results = transfer_manager.download_many_to_path(

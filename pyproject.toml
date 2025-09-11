@@ -26,6 +26,8 @@
     matplotlib = "^3.10.5"
     typer = "^0.16.1"
     click = "^8.2.1"
+    sgqlc = "^17"
+    python-dotenv = "^1.1.1"
 
     [tool.poetry.group.cuda]
         optional = true
@@ -52,8 +54,6 @@
         # ============ END OF TORCH PART ============
         # ===========================================
 
-    [[tool.poetry.scripts]]
-    cli = "name_to_photo_matchin.src.main:main"
 
 [build-system]
     build-backend = "poetry.core.masonry.api"
