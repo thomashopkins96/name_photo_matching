@@ -3,6 +3,7 @@ import re
 import traceback
 from loguru import logger
 import os
+from typing import Optional
 
 
 class CloudStorageHandler:
@@ -22,6 +23,19 @@ class CloudStorageHandler:
     def get_bucket_name(self):
         return self.bucket
 
+    def list_bucket_files(self, prefix: Optional[str] = None, delimiter: Optional[str] = None):
+        try:
+            blobs_iter = self.client.list_blobs(
+                self.bucket,
+                prefix=prefix,
+                delimiter=delimiter
+            )
+            blobs = list(blobs_iter)   # materialize it here
+            return blobs
+        except Exception as e:
+            logger.error(f"Listing files in bucket failed: {e}")
+            return []
+
     def get_3mfs_and_parse_file_names(self):
         results = {
                 "original_file_name": [],
@@ -34,10 +48,10 @@ class CloudStorageHandler:
             file_names = self.client.list_blobs(self.bucket)
 
             for file in file_names:
-                results['original_file_name'].append(file.id)
+                results['original_file_name'].append(file.name)
                 parsed_file_name = re.sub(regex_for_3mfs, lambda m: m.group(1)
                     .replace("_", " ")
-                    .replace(" freshie mold", ""), file.id)
+                    .replace(" freshie mold", ""), file.name)
 
                 results['parsed_file_name'].append(parsed_file_name)
 

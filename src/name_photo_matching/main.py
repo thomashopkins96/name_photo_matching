@@ -1,96 +1,100 @@
-import traceback
-
-from .clip_functions import CLIPHandler
-from .utils import to_csv
+from .cli_functions import CultsProducts
 from .gcs import CloudStorageHandler
-from loguru import logger
-from typing import Optional
-
 import argparse
 
 
-def init_gcs_client(bucket: str, service_account_path: Optional[str] = None):
-    logger.info("Creating GCS client instance.")
-    if service_account_path:
-        logger.info("Using service account to create credentials")
-        try:
-            client = CloudStorageHandler(bucket, service_account_path)
+def cmd_auth_init(args):
+    # Just prove we can auth (optionally list 1 blob)
+    h = CloudStorageHandler(bucket=args.bucket, service_account_path=args.service_account_file)
+    # Try a tiny call to confirm permissions:
+    try:
+        blobs = h.list_bucket_files(prefix=args.prefix, delimiter=args.delimiter)
+        first = next(iter(blobs), None)
+        if first:
+            print(f"Authenticated. Sample object: {getattr(first, 'name', getattr(first, 'id', 'unknown'))}")
+        else:
+            print("Authenticated. Bucket is reachable but empty (or prefix had no matches).")
+    except StopIteration:
+        print("Authenticated. No objects found.")
+    return 0
 
-            return client
+def cmd_storage_files_list(args):
+    print(f"[storage:files:list] bucket={args.bucket} output={args.output}")
 
-        except Exception as e:
-            traceback.print_exc()
-            logger.error(f"Creating credentials with service account failed: {e}")
 
-    else:
-        from google.cloud import storage
-        logger.info("Service account path was not passed. Using Google ADC instead.")
+def cmd_storage_files_download(args):
+    print(f"[storage:files:download] bucket={args.bucket} prefix={args.prefix!r} dst={args.destination!r}")
 
-        try:
-            client = storage.Client()
-            return client
 
-        except Exception as e:
-            traceback.print_exc()
-            logger.error(f"Creating credentials with Google ADC failed {e}")
+def cmd_similarity_encode_images(args):
+    print(f"[similarity:encode:images] dir={args.directory}")
+
+
+def cmd_similarity_encode_text(args):
+    print(f"[similarity:encode:text] dir={args.directory}")
 
 
 def build_parser():
     parser = argparse.ArgumentParser(
         prog="Shoebutton Artistry CLI",
-        description="CLI tools to assist with management and automation of product uploads and merchandising for Shoebutton Artistry"
+        description="CLI tools to assist with management and automation of product uploads and merchandising for Shoebutton Artistry",
     )
 
-    subparsers = parser.add_subparsers(dest="command")
-    auth_parser = subparsers.add_parser("auth")
-    auth_subparsers = auth_parser.add_subparsers(dest="subcommand", required=True)
-    auth_init_parser = auth_subparsers.add_parser("init", help="Verify Google credentials")
-    auth_init_parser.add_argument("service_account_file", help="Path to service account JSON")
-    storage_parser = subparsers.add_parser("storage")
-    storage_subparsers = storage_parser.add_subparsers(dest="subcommand", required=True)
+    main_sub = parser.add_subparsers(dest="command", required=True)
 
-    storage_files_parser = storage_subparsers.add_parser("files")
-    storage_files_subparser = storage_files_parser.add_subparsers(dest="subcommand", required=True)
+    # auth
+    auth = main_sub.add_parser("auth", help="Authentication")
+    auth_sub = auth.add_subparsers(dest="auth_cmd", required=True)
 
-    storage_list_parser = storage_files_subparser.add_parser("list", help="List current files")
-    storage_list_parser.add_argument("--bucket", required=True, help="Bucket to access")
-    storage_list_parser.add_argument("--output", help="Format for output")
+    auth_init = auth_sub.add_parser("init", help="Verify Google credentials")
+    auth_init.add_argument("service_account_file", help="Path to service account JSON")
+    auth_init.add_argument("--bucket", help="Optional bucket to test access")
+    auth_init.set_defaults(func=cmd_auth_init)
 
-    storage_download_parser = storage_files_subparser.add_parser("download", help="Download files from bucket")
-    storage_download_parser.add_argument("--bucket", required=True, help="Bucket to access")
-    storage_download_parser.add_argument("--destination", help="Destination folder for downloaded content")
+    # storage
+    storage = main_sub.add_parser("storage", help="Google Cloud Storage operations")
+    storage_sub = storage.add_subparsers(dest="storage_cmd", required=True)
 
-    similarity_parser = subparsers.add_parser("similarity")
-    similarity_subparsers = similarity_parser.add_subparsers(dest="subdommand", required=True)
-    similarity_encode_parser = similarity_subparsers.add_parser("encode", help="Command to encode an input to embeddings")
-    similarity_encode_image_subparser = similarity_encode_parser.add_subparsers(dest="subcommand", required=True)
-    similarity_encode_image_parser = similarity_encode_image_subparser.add_parser("images", help="Encode images")
-    similarity_encode_text_parser = similarity_encode_image_subparser.add_parser("text", help="Encode text")
+    files = storage_sub.add_parser("files", help="Work with objects in a bucket")
+    files_sub = files.add_subparsers(dest="files_cmd", required=True)
 
-    similarity_encode_image_parser.add_argument("directory", required=True)
-    similarity_encode_text_parser.add_argument("directory", required=True)
+    files_list = files_sub.add_parser("list", help="List current files")
+    files_list.add_argument("--bucket", required=True, help="Bucket to access")
+    files_list.add_argument("--output", choices=["table", "json", "csv"], default="table", help="Output format")
+    files_list.add_argument("--prefix", default="", help="Only list keys with this prefix")
+    files_list.set_defaults(func=cmd_storage_files_list)
+
+    files_dl = files_sub.add_parser("download", help="Download files from bucket")
+    files_dl.add_argument("--bucket", required=True, help="Bucket to access")
+    files_dl.add_argument("--prefix", default="", help="Only download keys with this prefix")
+    files_dl.add_argument("--destination", default=".", help="Destination folder")
+    files_dl.set_defaults(func=cmd_storage_files_download)
+
+    # similarity
+    similarity = main_sub.add_parser("similarity", help="Embedding / similarity utilities")
+    sim_sub = similarity.add_subparsers(dest="similarity_cmd", required=True)
+
+    encode = sim_sub.add_parser("encode", help="Encode inputs to embeddings")
+    encode_sub = encode.add_subparsers(dest="modality", required=True)
+
+    enc_imgs = encode_sub.add_parser("images", help="Encode images in a directory")
+    enc_imgs.add_argument("directory", help="Directory of images")
+    enc_imgs.set_defaults(func=cmd_similarity_encode_images)
+
+    enc_text = encode_sub.add_parser("text", help="Encode text files in a directory")
+    enc_text.add_argument("directory", help="Directory of text files")
+    enc_text.set_defaults(func=cmd_similarity_encode_text)
 
     return parser
 
+
 def main():
+    parser = build_parser()
     args = parser.parse_args()
-
-    if args.command == "auth":
-        if args.subcommand == "init":
-            client = init_gcs_client(args.bucket, args.service_account_file)
-
-    try:
-        logger.info("Initializing main workflow...")
-        client = init_gcs_client()
-
-        file_name_map = client.get_3mfs_and_parse_file_names()
-        to_csv(file_name_map, "current_cults_files.csv")
-        client.download_bucket(destination_directory="~/sba/name_to_photo_matching/photos")
-
-    except Exception as e:
-        traceback.print_exc()
-        logger.error(f"Main workflow failed: {e}")
-
+    if hasattr(args, "func"):
+        return args.func(args)
+    # Fallback (shouldn't hit because subparsers are required):
+    parser.print_help()
 
 if __name__ == "__main__":
     app()
